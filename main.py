@@ -3,21 +3,26 @@ import telebot
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from supabase import create_client, Client
-import requests
+from dotenv import load_dotenv
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
 # establish Supabase connection
-SUPABASE_URL = "https://rnxiypsmivbssauzeimu.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJueGl5cHNtaXZic3NhdXplaW11Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzEyMjk0NSwiZXhwIjoyMDU4Njk4OTQ1fQ.7bASVkUseIdYh8Qy9gxnmc1mHYkz4_9L5Ij4clesgTI"
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 
 # 🔹 Initialization sentence-transformers
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 # 🔹 Telegram Bot
-BOT_TOKEN = "8060311006:AAFFGADp14p7JBfY5dvSioHopIgzXVXK56c"
-OPERATOR_GROUP_ID = -1002626409614
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPERATOR_GROUP_ID = int(os.getenv("OPERATOR_GROUP_ID", "-1002626409614"))
 bot = telebot.TeleBot(BOT_TOKEN)
 
 

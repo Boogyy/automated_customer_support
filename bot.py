@@ -2,12 +2,16 @@ import telebot
 import requests
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
+from dotenv import load_dotenv
 
-TOKEN = "8060311006:AAFFGADp14p7JBfY5dvSioHopIgzXVXK56c"
-API_URL = "http://127.0.0.1:8000/process_question"
-ANSWER_URL = "http://127.0.0.1:8000/process_answer"
-ADD_FAQ_URL = "http://127.0.0.1:8000/add_to_faq"
-OPERATOR_GROUP_ID = -1002626409614  # ID оператора
+# Загружаем переменные из .env
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/process_question")
+ANSWER_URL = os.getenv("ANSWER_URL", "http://127.0.0.1:8000/process_answer")
+ADD_FAQ_URL = os.getenv("ADD_FAQ_URL", "http://127.0.0.1:8000/add_to_faq")
+OPERATOR_GROUP_ID = int(os.getenv("OPERATOR_GROUP_ID", "-1002626409614"))
 
 bot = telebot.TeleBot(TOKEN)
 pending_questions = {}  # user_id -> {"message_id": ID, "question": TEXT}
