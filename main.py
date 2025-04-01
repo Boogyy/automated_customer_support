@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI
 import telebot
 from pydantic import BaseModel
@@ -10,6 +11,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"message": "Hello from FastAPI"}
 
 # establish Supabase connection
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -153,3 +158,7 @@ async def add_to_faq(data: dict):
     supabase.table("question_logs").delete().eq("id", question_id).execute()
 
     return {"message": "✅ The question was successfully added to the FAQ and removed from the logs."}
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
