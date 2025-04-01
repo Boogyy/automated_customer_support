@@ -160,5 +160,5 @@ async def add_to_faq(data: dict):
     return {"message": "✅ The question was successfully added to the FAQ and removed from the logs."}
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
