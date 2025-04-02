@@ -12,13 +12,6 @@ load_dotenv()
 
 app = FastAPI()
 
-@app.get("/")
-async def root():
-    return {"message": "Hello from FastAPI"}
-
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
 
 # establish Supabase connection
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -164,3 +157,6 @@ async def add_to_faq(data: dict):
     return {"message": "✅ The question was successfully added to the FAQ and removed from the logs."}
 
 
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
