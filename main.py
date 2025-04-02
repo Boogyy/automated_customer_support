@@ -13,6 +13,11 @@ load_dotenv()
 app = FastAPI()
 
 
+@app.get("/")
+def read_root():
+    return {"message": "API is working!"}
+
+
 # establish Supabase connection
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
