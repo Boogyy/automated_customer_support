@@ -4,10 +4,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
 from dotenv import load_dotenv
 
-# Загружаем переменные из .env
 load_dotenv()
-
-import os
 
 TOKEN = os.getenv("BOT_TOKEN")
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000/process_question")
@@ -15,9 +12,8 @@ ANSWER_URL = os.getenv("ANSWER_URL", "http://127.0.0.1:8000/process_answer")
 ADD_FAQ_URL = os.getenv("ADD_FAQ_URL", "http://127.0.0.1:8000/add_to_faq")
 OPERATOR_GROUP_ID = int(os.getenv("OPERATOR_GROUP_ID", "-1002626409614"))
 
-
 bot = telebot.TeleBot(TOKEN)
-pending_questions = {}  # user_id -> {"message_id": ID, "question": TEXT}
+pending_questions = {}  # user_id -> {"message_id": ID, "question": TEXT, "reply_message_id": ID}
 
 
 @bot.message_handler(commands=["start"])
@@ -46,8 +42,7 @@ def handle_user_message(message):
             bot.send_message(user_id, data["answer"])
         elif "message" in data and data["message"] == "Sent to operator":
             bot.send_message(user_id, "Your question has been sent to the operator. Please wait for a reply.")
-            # saving the question text
-            pending_questions[user_id] = {"message_id": message.message_id, "question": text}
+            pending_questions[user_id] = {"message_id": message.message_id, "question": text, "reply_message_id": None}
         else:
             bot.send_message(user_id, "Error: unexpected response from API")
     except requests.exceptions.JSONDecodeError:
@@ -67,14 +62,13 @@ def handle_operator_response(message):
             bot.send_message(OPERATOR_GROUP_ID, "Error: No question from this user is pending.")
             return
 
-        # take the question text
         question_text = pending_questions[user_id]["question"]
 
-        # Update the answer to this question in the database
+        # Sending a response to the API
         response = requests.post(ANSWER_URL, json={"user_id": user_id, "answer": answer, "question": question_text})
 
         if response.status_code == 200:
-            # Send a reply to the user with the buttons
+            # Sending a reply to the user
             markup = InlineKeyboardMarkup()
             markup.row(
                 InlineKeyboardButton("✅ The answer is apt", callback_data=f"accept_{user_id}"),
@@ -89,11 +83,10 @@ def handle_operator_response(message):
         bot.send_message(OPERATOR_GROUP_ID, "Error: use the format '<user_id> <reply>'.")
 
 
-@bot.message_handler(func=lambda message: message.chat.id == OPERATOR_GROUP_ID and not message.text.startswith("/"))
+@bot.message_handler(func=lambda message: message.chat.id == OPERATOR_GROUP_ID and not message.text.startswith("/") and " " not in message.text)
 def handle_unstructured_operator_message(message):
-    """Processes operator messages if they do not conform to the format <user_id> <ответ>"""
-    if not message.text.split(" ")[0].isdigit():  # Проверяем, начинается ли текст с числа (ID пользователя)
-        bot.send_message(OPERATOR_GROUP_ID, "Error: use the format '<user_id> <reply>' to reply to a user.")
+    """Обрабатывает сообщения оператора, если они не соответствуют формату <user_id> <ответ>"""
+    bot.send_message(OPERATOR_GROUP_ID, "Error: use the format '<user_id> <reply>' to reply to a user.")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("reject_"))
@@ -105,10 +98,12 @@ def handle_feedback_reject(call):
         bot.send_message(user_id, "Your question was not found pending. Please try again later.")
         return
 
-    # Сохраняем текст вопроса снова в ожидание, без удаления из списка
+    # Remove the buttons to prevent the user from pressing them again
+    bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+
     bot.send_message(user_id, "We have resent your question to the operator. Please expect a new reply.")
     bot.send_message(OPERATOR_GROUP_ID, f"User {user_id} not satisfied with the answer. A new answer is required.\n"
-                                  f"Question: {pending_questions[user_id]['question']}")
+                                        f"Question: {pending_questions[user_id]['question']}")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
@@ -120,7 +115,10 @@ def handle_feedback_accept(call):
         bot.send_message(user_id, "Your question was not found pending. Please try again later.")
         return
 
-    # Убираем вопрос из списка ожидания
+    # Remove the buttons to prevent the user from pressing them again
+    bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+
+    # Taking a question off the waiting list
     del pending_questions[user_id]
     bot.send_message(user_id, "✅ Thank you for the confirmation! Your issue has been resolved.")
     bot.send_message(OPERATOR_GROUP_ID, f"✅ The reply was accepted by the user {user_id}. Question resolved.")
@@ -134,18 +132,22 @@ def handle_add_faq(message):
         return
 
     parts = message.text.split()
+
     if len(parts) != 2 or not parts[1].isdigit():
         bot.send_message(OPERATOR_GROUP_ID, "⚠️ Use the format: /add_faq <ID of question>")
         return
 
     question_id = int(parts[1])
 
-    response = requests.post("http://127.0.0.1:8000/add_to_faq", json={"question_id": question_id})
+    try:
+        response = requests.post(ADD_FAQ_URL, json={"question_id": question_id})
 
-    if response.status_code == 200:
-        bot.send_message(OPERATOR_GROUP_ID, response.json()["message"])
-    else:
-        bot.send_message(OPERATOR_GROUP_ID, "Error when adding to FAQ.")
+        if response.status_code == 200:
+            bot.send_message(OPERATOR_GROUP_ID, response.json()["message"])
+        else:
+            bot.send_message(OPERATOR_GROUP_ID, "Error when adding to FAQ.")
+    except Exception as e:
+        bot.send_message(OPERATOR_GROUP_ID, f"❌ Failed to add to FAQ: {e}")
 
 
 bot.polling(none_stop=True)

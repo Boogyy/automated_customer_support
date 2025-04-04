@@ -4,7 +4,6 @@ import telebot
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from supabase import create_client, Client
-from dotenv import load_dotenv
 import os
 from dotenv import load_dotenv
 
@@ -24,10 +23,9 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-# 🔹 Initialization sentence-transformers
+# Initialization sentence-transformers
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
-# 🔹 Telegram Bot
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 OPERATOR_GROUP_ID = int(os.getenv("OPERATOR_GROUP_ID", "-1002626409614"))
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -48,10 +46,10 @@ async def process_question(data: dict):
     user_id = data["user_id"]
     question = data["question"]
 
-    # Генерация вектора вопроса
+    # Question vector generation
     question_vector = get_embedding(question)
 
-    # 🔹 1. Поиск в faq_vectors
+    # Search in faq_vectors
     response_faq = supabase.rpc("match_faq",
                                 {"query_embedding": question_vector, "match_threshold": 0.9, "match_count": 1}).execute()
 
@@ -59,7 +57,7 @@ async def process_question(data: dict):
         best_match = response_faq.data[0]
         return {"answer": best_match["answer"]}
 
-    # 🔹 2. Поиск в question_logs
+    # Search in question_logs
     response_logs = supabase.rpc("match_question_logs",
                                  {"query_embedding": question_vector, "match_threshold": 0.75, "match_count": 1}).execute()
 
@@ -123,7 +121,6 @@ async def process_answer(data: dict):
     return {"message": "Answer saved"}
 
 
-
 @app.post("/add_to_faq")
 async def add_to_faq(data: dict):
     """Adding a question to the FAQ and removing it from the logs"""
@@ -156,7 +153,7 @@ async def add_to_faq(data: dict):
         except Exception as e:
             print(f"❌ Error when adding to FAQ: {e}")
 
-    # Удаляем вопрос из question_logs
+    # Deleting the question из question_logs
     supabase.table("question_logs").delete().eq("id", question_id).execute()
 
     return {"message": "✅ The question was successfully added to the FAQ and removed from the logs."}
