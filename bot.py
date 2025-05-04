@@ -23,4 +23,36 @@ def start(message):
                                       "If necessary, we will send the question to the operator.")
     
 
+@bot.message_handler(func=lambda message: message.chat.id != OPERATOR_GROUP_ID)
+def handle_user_message(message):
+    user_id = message.chat.id
+    text = message.text
+
+    response = requests.post(API_URL, json={"user_id": user_id, "question": text})
+    data = response.json()
+
+    if "answer" in data:
+        bot.send_message(user_id, data["answer"])
+    else:
+        bot.send_message(user_id, "Your question has been sent to an operator.")
+
+
+@bot.message_handler(func=lambda m: m.chat.id == OPERATOR_GROUP_ID and " " in m.text)
+def handle_operator_response(message):
+    try:
+        user_id, answer = message.text.split(" ", 1)
+        user_id = int(user_id)
+
+        # send to API
+        requests.post(ANSWER_URL, json={
+            "user_id": user_id,
+            "question": "Unknown",  # without question by the moment
+            "answer": answer
+        })
+
+        bot.send_message(user_id, f"✅ Operator's answer:\n{answer}")
+    except Exception:
+        bot.send_message(OPERATOR_GROUP_ID, "⚠️ Use: <user_id> <answer>")
+
+
 bot.polling(none_stop=True)
