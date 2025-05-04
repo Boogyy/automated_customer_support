@@ -55,4 +55,10 @@ def handle_operator_response(message):
         bot.send_message(OPERATOR_GROUP_ID, "⚠️ Use: <user_id> <answer>")
 
 
+@bot.message_handler(func=lambda message: message.chat.id == OPERATOR_GROUP_ID and not message.text.startswith("/") and " " not in message.text)
+def handle_unstructured_operator_message(message):
+    """Processes operator messages if they do not conform to the format <user_id> <reply>"""
+    bot.send_message(OPERATOR_GROUP_ID, "Error: use the format '<user_id> <reply>' to reply to a user.")
+
+
 bot.polling(none_stop=True)
