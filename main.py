@@ -56,7 +56,13 @@ async def process_question(data: dict):
     if response_faq.data:
         return {"answer": response_faq.data[0]["answer"]}
 
+    # send to operator
+    bot.send_message(OPERATOR_GROUP_ID, f"❓ New question from {user_id}:\n{question}")
+    print("nothing in FAQ, send to operator")
+    return {"message": "Sent to operator"}
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+    
