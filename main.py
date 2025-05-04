@@ -41,6 +41,22 @@ class QuestionAnswerUpdate(BaseModel):
     new_answer: str
 
 
+@app.post("/process_question")
+async def process_question(data: dict):
+    user_id = data["user_id"]
+    question = data["question"]
+    question_vector = get_embedding(question)
+
+    response_faq = supabase.rpc("match_faq", {
+        "query_embedding": question_vector,
+        "match_threshold": 0.9,
+        "match_count": 1
+    }).execute()
+
+    if response_faq.data:
+        return {"answer": response_faq.data[0]["answer"]}
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
