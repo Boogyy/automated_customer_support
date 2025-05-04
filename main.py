@@ -62,6 +62,25 @@ async def process_question(data: dict):
     return {"message": "Sent to operator"}
 
 
+@app.post("/process_answer")
+async def process_answer(data: dict):
+    user_id = data["user_id"]
+    question = data["question"]
+    answer = data["answer"]
+    embedding = get_embedding(question)
+
+    supabase.table("question_logs").insert({
+        "user_id": user_id,
+        "question": question,
+        "answer": answer,
+        "embedding": embedding,
+        "count": 1
+    }).execute()
+
+    bot.send_message(OPERATOR_GROUP_ID, "✅ Answer saved")
+    return {"message": "Answer saved"}
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
