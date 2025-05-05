@@ -25,34 +25,62 @@ def start(message):
 
 @bot.message_handler(func=lambda message: message.chat.id != OPERATOR_GROUP_ID)
 def handle_user_message(message):
+    """Handling messages from users"""
     user_id = message.chat.id
     text = message.text
 
     response = requests.post(API_URL, json={"user_id": user_id, "question": text})
-    data = response.json()
 
-    if "answer" in data:
-        bot.send_message(user_id, data["answer"])
-    else:
-        bot.send_message(user_id, "Your question has been sent to an operator.")
+    if response.status_code != 200:
+        bot.send_message(user_id, "There's been an error. Try again later.")
+        return
 
-
-@bot.message_handler(func=lambda m: m.chat.id == OPERATOR_GROUP_ID and " " in m.text)
-def handle_operator_response(message):
     try:
-        user_id, answer = message.text.split(" ", 1)
-        user_id = int(user_id)
+        data = response.json()
 
-        # send to API
-        requests.post(ANSWER_URL, json={
-            "user_id": user_id,
-            "question": "Unknown",  # without question by the moment
-            "answer": answer
-        })
+        if "answer" in data:
+            bot.send_message(user_id, data["answer"])
+        elif "message" in data and data["message"] == "Sent to operator":
+            bot.send_message(user_id, "Your question has been sent to the operator. Please wait for a reply.")
+            pending_questions[user_id] = {"message_id": message.message_id, "question": text, "reply_message_id": None}
+        else:
+            bot.send_message(user_id, "Error: unexpected response from API")
+    except requests.exceptions.JSONDecodeError:
+        bot.send_message(user_id, "Data processing error. Try again later.")
 
-        bot.send_message(user_id, f"✅ Operator's answer:\n{answer}")
-    except Exception:
-        bot.send_message(OPERATOR_GROUP_ID, "⚠️ Use: <user_id> <answer>")
+
+@bot.message_handler(func=lambda message: message.chat.id == OPERATOR_GROUP_ID and " " in message.text and not message.text.startswith("/"))
+def handle_operator_response(message):
+    """Handling operator responses"""
+    parts = message.text.split(" ", 1)
+
+    try:
+        user_id = int(parts[0])
+        answer = parts[1]
+
+        if user_id not in pending_questions:
+            bot.send_message(OPERATOR_GROUP_ID, "Error: No question from this user is pending.")
+            return
+
+        question_text = pending_questions[user_id]["question"]
+
+        # Sending a response to the API
+        response = requests.post(ANSWER_URL, json={"user_id": user_id, "answer": answer, "question": question_text})
+
+        if response.status_code == 200:
+            # Sending a reply to the user
+            markup = InlineKeyboardMarkup()
+            markup.row(
+                InlineKeyboardButton("✅ The answer is apt", callback_data=f"accept_{user_id}"),
+                InlineKeyboardButton("❌ The answer doesn't fit", callback_data=f"reject_{user_id}")
+            )
+
+            bot.send_message(user_id, f"✅ Operator's reply:\n{answer}", reply_markup=markup)
+            bot.send_message(OPERATOR_GROUP_ID, "✅ Reply sent to user.")
+        else:
+            bot.send_message(OPERATOR_GROUP_ID, "Error when saving a reply.")
+    except (IndexError, ValueError, KeyError):
+        bot.send_message(OPERATOR_GROUP_ID, "Error: use the format '<user_id> <reply>'.")
 
 
 @bot.message_handler(func=lambda message: message.chat.id == OPERATOR_GROUP_ID and not message.text.startswith("/") and " " not in message.text)
