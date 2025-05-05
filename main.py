@@ -77,7 +77,7 @@ async def process_question(data: dict):
                                       f"❓ {best_match['question']}\n"
                                       f"📌 Answer: {best_match['answer']}\n"
                                       f"🔥 Asked {new_count} time(s)\n"
-                                      f"🔥 Id to add: {question_id}\n"
+                                      f"🔥 Id to add: {question_id}, use '/add_faq {question_id}'\n"
                                       f"✍️ New question: {question}")
     else:
         bot.send_message(OPERATOR_GROUP_ID, f"🔔 A new question from {user_id}:\n❓ {question}\n"
