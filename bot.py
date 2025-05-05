@@ -89,6 +89,42 @@ def handle_unstructured_operator_message(message):
     bot.send_message(OPERATOR_GROUP_ID, "Error: use the format '<user_id> <reply>' to reply to a user.")
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("reject_"))
+def handle_feedback_reject(call):
+    """Handler for user rejection of a response"""
+    user_id = int(call.data.split("_")[1])
+
+    if user_id not in pending_questions:
+        bot.send_message(user_id, "Your question was not found pending. Please try again later.")
+        return
+
+    # Remove the buttons to prevent the user from pressing them again
+    bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+
+    bot.send_message(user_id, "We have resent your question to the operator. Please expect a new reply.")
+    bot.send_message(OPERATOR_GROUP_ID, f"User {user_id} not satisfied with the answer. A new answer is required.\n"
+                                        f"Question: {pending_questions[user_id]['question']}")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_"))
+def handle_feedback_accept(call):
+    """User response acceptance handler"""
+    user_id = int(call.data.split("_")[1])
+
+    if user_id not in pending_questions:
+        bot.send_message(user_id, "Your question was not found pending. Please try again later.")
+        return
+
+    # Remove the buttons to prevent the user from pressing them again
+    bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
+
+    # Taking a question off the waiting list
+    del pending_questions[user_id]
+    bot.send_message(user_id, "✅ Thank you for the confirmation! Your issue has been resolved.")
+    bot.send_message(OPERATOR_GROUP_ID, f"✅ The reply was accepted by the user {user_id}. Question resolved.")
+
+
+
 @bot.message_handler(commands=["add_faq"])
 def handle_add_faq(message):
     """Handler of the /add_faq <ID> command"""
