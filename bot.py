@@ -89,4 +89,30 @@ def handle_unstructured_operator_message(message):
     bot.send_message(OPERATOR_GROUP_ID, "Error: use the format '<user_id> <reply>' to reply to a user.")
 
 
+@bot.message_handler(commands=["add_faq"])
+def handle_add_faq(message):
+    """Handler of the /add_faq <ID> command"""
+    if message.chat.id != OPERATOR_GROUP_ID:
+        bot.send_message(message.chat.id, "❌ This command is only available to the operator.")
+        return
+
+    parts = message.text.split()
+
+    if len(parts) != 2 or not parts[1].isdigit():
+        bot.send_message(OPERATOR_GROUP_ID, "⚠️ Use the format: /add_faq <ID of question>")
+        return
+
+    question_id = int(parts[1])
+
+    try:
+        response = requests.post(ADD_FAQ_URL, json={"question_id": question_id})
+
+        if response.status_code == 200:
+            bot.send_message(OPERATOR_GROUP_ID, response.json()["message"])
+        else:
+            bot.send_message(OPERATOR_GROUP_ID, "Error when adding to FAQ.")
+    except Exception as e:
+        bot.send_message(OPERATOR_GROUP_ID, f"❌ Failed to add to FAQ: {e}")
+
+
 bot.polling(none_stop=True)
