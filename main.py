@@ -121,6 +121,44 @@ async def process_answer(data: dict):
     return {"message": "Answer saved"}
 
 
+@app.post("/add_to_faq")
+async def add_to_faq(data: dict):
+    """Adding a question to the FAQ and removing it from the logs"""
+    question_id = data.get("question_id")
+
+    # Get the question from question_logs
+    response = supabase.table("question_logs").select("id, user_id, question, answer").eq("id", question_id).execute()
+
+    if not response.data:
+        return {"error": "The question is not found in the logs"}
+
+    question_entry = response.data[0]
+    question = question_entry["question"]
+    answer = question_entry["answer"]
+    user_id = question_entry["user_id"]
+
+    # Check if this question is already in the FAQ
+    response_faq = supabase.table("faq_vectors").select("id").eq("question", question).execute()
+
+    if not response_faq.data:
+        try:
+            # Add a question to the FAQ
+            supabase.table("faq_vectors").insert({
+                "user_id": user_id,
+                "question": question,
+                "answer": answer,
+                "embedding": get_embedding(question)
+            }).execute()
+            print("✅ The question has been successfully added to the FAQ")
+        except Exception as e:
+            print(f"❌ Error when adding to FAQ: {e}")
+
+    # Deleting the question из question_logs
+    supabase.table("question_logs").delete().eq("id", question_id).execute()
+
+    return {"message": "✅ The question was successfully added to the FAQ and removed from the logs."}
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
